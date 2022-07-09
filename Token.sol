@@ -19,14 +19,16 @@ contract Token is Ownable, ERC721Enumerable, ERC721URIStorage {
     // Maximum amounts of mintable tokens
     uint256 public _maxSupply;
 
+    address private _admin; 
+
 
     // Events
     event Mint(uint256 tokenId, address recipient);
 
 
-    constructor(uint256 maxSupply, string memory name, string memory tag) ERC721(name, tag) {
+    constructor(uint256 maxSupply, address admin, string memory name, string memory tag) ERC721(name, tag) {
         _maxSupply = maxSupply;
-
+        _admin = admin;
     }
 
     /** Overrides ERC-721's _baseURI function */
@@ -82,12 +84,20 @@ contract Token is Ownable, ERC721Enumerable, ERC721URIStorage {
         }
     }
 
-    /// @notice Mints tokens
-    /// @param recipient - the address to which the token will be transfered
-    /// @param hash - the IPFS hash of the token's resource
-    /// @return tokenId - the id of the token
-    function mint(address recipient, string memory hash)
+    function multiMint(address recipient, string[] memory hash, uint256 NFTcopiesNumber, bytes32 message, bytes memory sig)
     external 
+    returns (uint256[] memory tokenId){
+        require(recoverSigner(message,sig) == _admin, "Unauthorized use" );
+        uint256[] memory tokenIds;
+        for(uint256 i = 0; i < NFTcopiesNumber; i++){
+            tokenIds[i] = mint(recipient, hash[i]);
+        }
+        return tokenIds;
+    }
+
+
+    function mint(address recipient, string memory hash)
+    private 
     returns (uint256 tokenId)
     {
         require(totalSupply() <= _maxSupply, "All tokens minted");
@@ -99,6 +109,62 @@ contract Token is Ownable, ERC721Enumerable, ERC721URIStorage {
         _setTokenURI(newItemId, hash);
         emit Mint(newItemId, recipient);
         return newItemId;
+    }
+
+    // /// @notice Mints tokens
+    // /// @param recipient - the address to which the token will be transfered
+    // /// @param hash - the IPFS hash of the token's resource
+    // /// @return tokenId - the id of the token
+    // function mint(address recipient, string memory hash, bytes32 message, bytes memory sig)
+    // external 
+    // returns (uint256 tokenId)
+    // {
+    //     require(totalSupply() <= _maxSupply, "All tokens minted");
+    //     require(bytes(hash).length > 0); // dev: Hash can not be empty!
+    //     require(hashes[hash] != 1); // dev: Can't use the same hash twice
+    //     hashes[hash] = 1;
+    //     uint256 newItemId = totalSupply() + 1;
+    //     _safeMint(recipient, newItemId);
+    //     _setTokenURI(newItemId, hash);
+    //     emit Mint(newItemId, recipient);
+    //     return newItemId;
+    // }
+
+    function splitSignature(bytes memory sig)
+    internal
+    pure
+    returns (uint8, bytes32, bytes32)
+    {   
+        require(sig.length == 65);
+
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+
+        assembly {
+            // first 32 bytes, after the length prefix
+            r := mload(add(sig, 32))
+            // second 32 bytes
+            s := mload(add(sig, 64))
+            // final byte (first byte of the next 32 bytes)
+            v := byte(0, mload(add(sig, 96)))
+     }
+
+        return (v, r, s);
+    }
+
+    function recoverSigner(bytes32 message, bytes memory sig)
+        internal
+        pure
+        returns (address)
+    {
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+
+        (v, r, s) = splitSignature(sig);
+
+    return ecrecover(message, v, r, s);
     }
 
 

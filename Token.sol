@@ -31,6 +31,8 @@ contract Token is Ownable, ERC721, ERC721URIStorage {
     uint256 public constant royaltiesPercentage = 10;
     address private _royaltiesReceiver;
 
+    string baseURI;
+
 
     // Events
     event Mint(uint256 tokenId, address recipient);
@@ -44,7 +46,7 @@ contract Token is Ownable, ERC721, ERC721URIStorage {
 
     /** Overrides ERC-721's _baseURI function */
     function _baseURI() internal view override returns (string memory) {
-        return "https://gateway.pinata.cloud/ipfs/";
+        return baseURI;
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 amount)
@@ -86,7 +88,6 @@ contract Token is Ownable, ERC721, ERC721URIStorage {
         uint256[10] memory tokenIds;
         for(uint256 i = 0; i < NFTcopiesNumber; i++){
             tokenIds[i] = mint(recipient, hash[i]);
-            // mint(recipient, hash[i]);
         }
         usedMessages[message] = 1;
         return tokenIds;
@@ -170,8 +171,6 @@ contract Token is Ownable, ERC721, ERC721URIStorage {
     )
         public pure returns (bytes32)
     {
-
-        // return getEthSignedHash(keccak256(abi.encodePacked(recipient, ";", hash, ";", nftCopies)));
         return keccak256(abi.encodePacked(recipient, ";", hash, ";", nftCopies, ";", time));
     } 
 
@@ -193,6 +192,10 @@ contract Token is Ownable, ERC721, ERC721URIStorage {
 
     function royaltiesReceiver() external view returns(address) {
         return _royaltiesReceiver;
+    }
+
+    function setBaseURI(string memory URI) external onlyOwner{
+        baseURI = URI;
     }
 
 }
